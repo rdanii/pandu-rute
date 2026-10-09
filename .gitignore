@@ -1,0 +1,22 @@
+# Go build output
+/backend/bin/
+/backend/api
+*.test
+*.out
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Downloaded transit data (large, licence terms unverified — do not commit)
+/data/
+*[gG][tT][fF][sS]*.zip
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# mobile/ gets its own .gitignore from create-expo-app
