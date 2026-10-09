@@ -3,7 +3,8 @@
 Mobile-first journey planner for Indonesian public transport, starting with Jakarta.
 
 > Status: **repository foundation only.** There is a Go API with a health endpoint
-> and project docs. Trip planning, the data layer and the mobile app are not built yet.
+> plus an unmodified Expo app template, and project docs. Trip planning, the data layer
+> and mobile features are not built yet.
 
 ## Layout
 
@@ -11,7 +12,7 @@ Mobile-first journey planner for Indonesian public transport, starting with Jaka
 backend/   Go REST API (module: pandu-rute/backend)
   cmd/api/            entrypoint
   internal/httpapi/   routes and handlers
-mobile/    React Native + Expo (TypeScript) app — placeholder, see mobile/README.md
+mobile/    React Native + Expo (TypeScript) app — template only, see mobile/README.md
 docs/      architecture and routing/data research
 ```
 
@@ -20,7 +21,7 @@ docs/      architecture and routing/data research
 | Tool | Needed for | Version used at bootstrap |
 |------|------------|---------------------------|
 | Go | backend | 1.27.1 (`go.mod` declares `go 1.27.1`) |
-| Node.js LTS + npm | mobile | **not installed yet**. Required before the Expo app can be scaffolded |
+| Node.js LTS + npm | mobile | Node v24.21.0, npm 11.19.0 (installed via nvm) |
 | Git | version control | 2.43 |
 | PostgreSQL + PostGIS | future data layer | not used yet; see [docs/architecture.md](docs/architecture.md) |
 
@@ -47,7 +48,15 @@ curl -i http://localhost:8080/healthz
 
 ## Mobile
 
-Not scaffolded yet. Follow [mobile/README.md](mobile/README.md) once Node.js is installed.
+```bash
+cd mobile
+npm install
+npx expo-doctor        # project health checks
+npx tsc --noEmit       # type check
+npx expo start         # dev server (not yet verified on a device)
+```
+
+See [mobile/README.md](mobile/README.md) for versions, more checks and WSL2 notes.
 
 ## Docs
 

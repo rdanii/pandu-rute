@@ -18,7 +18,7 @@ Status: **proposal.** Only the parts marked *built* exist in the repo.
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Go REST API | *built (health only)* | `GET /healthz`. Uses the standard library `net/http` with Go 1.22+ method routing. No framework. |
-| Mobile app | not scaffolded | Expo + TypeScript, created with `create-expo-app`. Blocked on Node.js being installed. |
+| Mobile app | *scaffolded (template only)* | Expo SDK 57 + TypeScript, from the `create-expo-app` `blank-typescript` template. No features yet. |
 | Routing engine | undecided | See [routing-data-evaluation.md](routing-data-evaluation.md). |
 | PostgreSQL/PostGIS | future | See below. |
 
