@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"pandu-rute/backend/internal/stops"
 	"pandu-rute/backend/internal/tripplan"
 )
 
@@ -15,12 +16,16 @@ import (
 const DefaultPlanTimeout = 8 * time.Second
 
 // Dependencies are the collaborators of the HTTP handlers. Zero values are
-// safe: no Planner means trip plans fail with ROUTING_UNAVAILABLE.
+// safe: no Planner means trip plans fail with ROUTING_UNAVAILABLE, and no
+// Stops index (or no StopAttributions) means stop search fails with
+// STOP_INDEX_UNAVAILABLE.
 type Dependencies struct {
-	Planner     tripplan.Planner
-	Logger      *slog.Logger
-	Now         func() time.Time
-	PlanTimeout time.Duration
+	Planner          tripplan.Planner
+	Stops            *stops.Index
+	StopAttributions []tripplan.Attribution
+	Logger           *slog.Logger
+	Now              func() time.Time
+	PlanTimeout      time.Duration
 }
 
 // NewRouter returns the API's HTTP handler with no routing engine configured.
@@ -47,8 +52,15 @@ func NewRouterWith(d Dependencies) http.Handler {
 		timeout: d.PlanTimeout,
 	}
 
+	sh := &stopSearchHandler{
+		index:        d.Stops,
+		attributions: d.StopAttributions,
+		logger:       d.Logger,
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	mux.Handle("POST /v1/trip-plans", tp)
+	mux.Handle("GET /v1/stops", sh)
 	return mux
 }

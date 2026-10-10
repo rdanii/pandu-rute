@@ -58,6 +58,7 @@ const (
 	ReasonInvalidType   = "invalid_type"
 	ReasonInvalidFormat = "invalid_format"
 	ReasonTooLong       = "too_long"
+	ReasonTooShort      = "too_short"
 	ReasonUnknownField  = "unknown_field"
 	ReasonMalformedJSON = "malformed_json"
 	ReasonTrailingData  = "trailing_data"

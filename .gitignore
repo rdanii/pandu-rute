@@ -17,6 +17,7 @@
 *.pbf
 graph.obj
 *.jar
+stops.txt
 
 # Editor / OS
 .DS_Store

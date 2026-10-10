@@ -18,6 +18,7 @@ const (
 	CodeRoutingUnavailable      = "ROUTING_UNAVAILABLE"
 	CodeRoutingTimeout          = "ROUTING_TIMEOUT"
 	CodeUpstreamInvalidResponse = "UPSTREAM_INVALID_RESPONSE"
+	CodeStopIndexUnavailable    = "STOP_INDEX_UNAVAILABLE"
 	CodeInternal                = "INTERNAL"
 )
 
@@ -37,6 +38,7 @@ var apiErrors = map[string]apiError{
 	CodeRoutingUnavailable:      {http.StatusServiceUnavailable, "Layanan pencarian rute sedang tidak tersedia. Coba lagi nanti."},
 	CodeRoutingTimeout:          {http.StatusGatewayTimeout, "Pencarian rute memakan waktu terlalu lama. Coba lagi."},
 	CodeUpstreamInvalidResponse: {http.StatusBadGateway, "Terjadi gangguan pada layanan pencarian rute. Coba lagi nanti."},
+	CodeStopIndexUnavailable:    {http.StatusServiceUnavailable, "Pencarian halte sedang tidak tersedia. Coba lagi nanti."},
 	CodeInternal:                {http.StatusInternalServerError, "Terjadi kesalahan pada server."},
 }
 

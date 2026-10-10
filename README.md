@@ -2,11 +2,11 @@
 
 Mobile-first journey planner for Indonesian public transport, starting with Jakarta.
 
-> Status: **early development, not production-ready.** The Go API serves `GET /healthz`
-> and `POST /v1/trip-plans`, which asks a separately run OpenTripPlanner (OTP) 2.10
-> instance for TransJakarta + walking itineraries. The mobile app has a home screen but
-> does not call the API yet. Timetable accuracy has not been verified against real-world
-> service.
+> Status: **early development, not production-ready.** The Go API serves `GET /healthz`,
+> `GET /v1/stops` (TransJakarta stop search) and `POST /v1/trip-plans`, which asks a
+> separately run OpenTripPlanner (OTP) 2.10 instance for TransJakarta + walking
+> itineraries. The mobile app has a home screen but does not call the API yet. Timetable
+> accuracy has not been verified against real-world service.
 
 ## Layout
 
@@ -15,6 +15,8 @@ backend/   Go REST API (module: pandu-rute/backend)
   cmd/api/              entrypoint and configuration
   internal/httpapi/     HTTP routes, request validation, error envelope
   internal/tripplan/    app-owned trip-planning model and service
+  internal/stops/       GTFS stops loader and in-memory name search
+  internal/attribution/ data-source credits shared by endpoints
   internal/otp/         OpenTripPlanner 2.10 adapter
 mobile/    React Native + Expo (TypeScript) app, see mobile/README.md
 docs/      architecture, API contract (docs/api/openapi.yaml), routing/data research
@@ -75,9 +77,27 @@ If OTP is not running, the API still starts and trip plans return `503 ROUTING_U
 Every successful response carries TransJakarta (CC BY 4.0) and OpenStreetMap (ODbL)
 attributions; `dataVersion` is always `null` for now.
 
+### Stop search
+
+`GET /v1/stops?q=<text>&limit=<n>` searches TransJakarta stops by name and returns each
+stop's id, name and coordinates, which can be sent to `POST /v1/trip-plans`. When the
+feed provides them, results also carry optional `kind` (`station`, `platform`, `stop`),
+`platformCode` and `parentStationId` to tell stops with the same name apart. A stop
+found here may still be outside what trip planning can route (`422 LOCATION_NOT_ROUTABLE`).
+It needs the feed's `stops.txt`, extracted from the GTFS zip, at the path in `GTFS_STOPS_PATH`:
+
+```bash
+GTFS_STOPS_PATH=/path/to/stops.txt go run ./cmd/api
+```
+
+The file is read once at startup; restart the API to load a new one. If the variable is
+unset or the file is missing or invalid, the API still starts and stop search returns
+`503 STOP_INDEX_UNAVAILABLE`. Keep the file outside the repository or under the ignored
+`data/` folder; `stops.txt` is git-ignored everywhere.
+
 ### Not available yet
 
-- stop search and geocoding (routing input is coordinates only; `label` is display text)
+- geocoding of addresses or places (routing input is coordinates; `label` is display text)
 - real-time data
 - transit operators other than TransJakarta
 - service-area checks, `/readyz`, route geometry and deployment configuration

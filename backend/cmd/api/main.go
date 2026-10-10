@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"pandu-rute/backend/internal/attribution"
 	"pandu-rute/backend/internal/httpapi"
 	"pandu-rute/backend/internal/otp"
+	"pandu-rute/backend/internal/stops"
+	"pandu-rute/backend/internal/tripplan"
 )
 
 func main() {
@@ -48,10 +51,12 @@ func main() {
 
 // newServer builds the HTTP server from environment variables:
 //
-//	PORT          listen port (default 8080)
-//	OTP_BASE_URL  OTP base URL (default otp.DefaultBaseURL)
+//	PORT             listen port (default 8080)
+//	OTP_BASE_URL     OTP base URL (default otp.DefaultBaseURL)
+//	GTFS_STOPS_PATH  path to a TransJakarta GTFS stops.txt file (no default)
 //
-// It fails only on invalid configuration, never on OTP availability.
+// It fails only on invalid OTP configuration. An unavailable OTP or a
+// missing or unreadable stops file never prevents startup.
 func newServer(getenv func(string) string) (*http.Server, *otp.Client, error) {
 	planner, err := otp.New(otp.Config{
 		BaseURL:      envOr(getenv, "OTP_BASE_URL", otp.DefaultBaseURL),
@@ -63,8 +68,10 @@ func newServer(getenv func(string) string) (*http.Server, *otp.Client, error) {
 	srv := &http.Server{
 		Addr: ":" + envOr(getenv, "PORT", "8080"),
 		Handler: httpapi.NewRouterWith(httpapi.Dependencies{
-			Planner: planner,
-			Logger:  slog.Default(),
+			Planner:          planner,
+			Stops:            loadStops(getenv("GTFS_STOPS_PATH")),
+			StopAttributions: []tripplan.Attribution{attribution.TransJakartaGTFS()},
+			Logger:           slog.Default(),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
@@ -72,6 +79,24 @@ func newServer(getenv func(string) string) (*http.Server, *otp.Client, error) {
 		IdleTimeout:       60 * time.Second,
 	}
 	return srv, planner, nil
+}
+
+// loadStops loads the stop-search index. Failure only disables stop search;
+// log lines carry counts and the file hash, never row content.
+func loadStops(path string) *stops.Index {
+	if path == "" {
+		log.Print("stop search disabled: GTFS_STOPS_PATH is not set")
+		return nil
+	}
+	idx, err := stops.LoadFile(path, otp.DefaultNamespace)
+	if err != nil {
+		log.Printf("stop search disabled: %v", err)
+		return nil
+	}
+	st := idx.Stats()
+	log.Printf("stop search enabled: %d stops loaded from %d rows (skipped %v; unknown location_type %d, dangling parent %d, non-station parent %d), sha256 %s",
+		st.Loaded, st.Rows, st.Skipped, st.UnknownLocationType, st.DanglingParent, st.NonStationParent, idx.Version())
+	return idx
 }
 
 func envOr(getenv func(string) string, key, fallback string) string {
