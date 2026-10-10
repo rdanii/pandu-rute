@@ -1,7 +1,19 @@
 # mobile/
 
-React Native + Expo app (TypeScript). It is currently the unmodified
-`blank-typescript` template: no product features yet.
+React Native + Expo app (TypeScript), scaffolded from the `blank-typescript`
+template. `App.tsx` now contains an Indonesian home screen:
+
+- app name "Pandu Rute" and the tagline "Biar nggak bingung di jalan.";
+- one free-text destination field ("Mau ke mana?") and a "Cari Rute" button;
+- validation of an empty destination, and a notice after submitting.
+
+Current limitations:
+
+- **No backend integration.** Submitting only records the typed destination and
+  says that route search is not available yet. The app never calls the Go API.
+- There is no origin field, no stop search and no location permission. The typed
+  text is not geocoded and is not a location.
+- No dependencies were added beyond the template.
 
 ## Versions (from package.json)
 
@@ -30,9 +42,13 @@ npx expo export --platform android --output-dir /tmp/expo-export   # bundles the
 npx expo start
 ```
 
-Not yet verified on a device or emulator. On WSL2, Expo Go on a phone may not
-reach the dev server over the LAN; `npx expo start --tunnel` is a common
-workaround (also unverified here).
+On WSL2, Expo Go on a phone may not reach the dev server over the LAN; use
+`npx expo start --tunnel` (the `@expo/ngrok` package must be installed).
+
+The home screen was opened in Expo Go on a physical iPhone over `--tunnel`,
+and its layout, empty-input validation, submission notice and keyboard
+behaviour were checked manually by the repository owner; this was a manual
+check, not an automated test. Android and screen readers have not been checked.
 
 ## How this was scaffolded
 
