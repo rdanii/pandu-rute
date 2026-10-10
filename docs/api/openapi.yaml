@@ -1,0 +1,290 @@
+openapi: 3.1.0
+info:
+  title: Pandu Rute API
+  version: 0.1.0
+  description: |
+    Mobile-facing API of Pandu Rute: Anti Bingung.
+
+    Trip plans are computed by OpenTripPlanner behind the API (configured with
+    `OTP_BASE_URL`). When it is unreachable, `POST /v1/trip-plans` answers
+    valid requests with `503 ROUTING_UNAVAILABLE`. Itinerary times are
+    currently always `frequency_estimate`.
+
+    Itineraries with the same journey structure (same legs, lines and
+    stops; departures may differ) are merged into one, so fewer than
+    `maxItineraries` may be returned. Every returned itinerary contains at
+    least one transit leg: walk-only results are currently not returned and
+    yield `NO_ROUTE` when nothing else remains.
+
+    Routing input is coordinates only. `label` is display text that is
+    echoed back; it is never geocoded or used for routing.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      description: Reports that the process serves HTTP. Does not check routing availability.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+  /v1/trip-plans:
+    post:
+      summary: Plan a trip between two coordinates
+      operationId: createTripPlan
+      requestBody:
+        required: true
+        description: JSON body of at most 4096 bytes. Unknown fields and trailing JSON values are rejected.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripPlanRequest"
+            example:
+              origin: { lat: -6.2, lon: 106.8, label: Rumah }
+              destination: { lat: -6.1, lon: 106.81 }
+              departAt: "2026-10-12T08:00:00+07:00"
+              maxItineraries: 3
+      responses:
+        "200":
+          description: Itineraries from the configured routing engine.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/X-Request-Id"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripPlanResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "405":
+          description: Method not allowed (plain-text response from the router, not the error envelope).
+        "413":
+          $ref: "#/components/responses/Error"
+        "415":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+        "504":
+          $ref: "#/components/responses/Error"
+components:
+  headers:
+    X-Request-Id:
+      description: Server-generated request identifier, also present in error bodies.
+      schema:
+        type: string
+        pattern: "^req_[0-9a-f]{24}$"
+  responses:
+    Error:
+      description: |
+        Stable error envelope. `message` is fixed Indonesian text per code;
+        upstream error text is never included.
+
+        | code | HTTP |
+        |---|---|
+        | INVALID_INPUT | 400 |
+        | PAYLOAD_TOO_LARGE | 413 |
+        | UNSUPPORTED_MEDIA_TYPE | 415 |
+        | NO_ROUTE | 422 |
+        | OUT_OF_COVERAGE | 422 |
+        | LOCATION_NOT_ROUTABLE | 422 |
+        | INTERNAL | 500 |
+        | UPSTREAM_INVALID_RESPONSE | 502 |
+        | ROUTING_UNAVAILABLE | 503 |
+        | ROUTING_TIMEOUT | 504 |
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/X-Request-Id"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: INVALID_INPUT
+              message: Permintaan tidak valid. Periksa kembali data yang dikirim.
+              details:
+                - { field: origin.lat, reason: out_of_range }
+              requestId: req_0123456789abcdef01234567
+  schemas:
+    LocationInput:
+      type: object
+      additionalProperties: false
+      required: [lat, lon]
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: WGS84 latitude in decimal degrees.
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: WGS84 longitude in decimal degrees.
+        label:
+          type: string
+          maxLength: 100
+          description: Display text, echoed back. Never geocoded. Control characters are rejected.
+    TripPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [origin, destination]
+      properties:
+        origin:
+          $ref: "#/components/schemas/LocationInput"
+        destination:
+          $ref: "#/components/schemas/LocationInput"
+        departAt:
+          type: string
+          format: date-time
+          description: |
+            RFC 3339 with an explicit offset (`Z` or `±hh:mm`). Defaults to the
+            current time, expressed in WIB (UTC+07:00).
+        maxItineraries:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+    Location:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+        label: { type: string }
+    Place:
+      type: object
+      required: [name, lat, lon]
+      properties:
+        stopId:
+          type: string
+          description: App-owned stop identifier; absent for non-stop places.
+        name: { type: string }
+        lat: { type: number }
+        lon: { type: number }
+    Line:
+      type: object
+      required: [id, shortName]
+      properties:
+        id: { type: string, description: App-owned line identifier. }
+        shortName: { type: string }
+        longName: { type: string }
+    Leg:
+      type: object
+      required: [type, mode, from, to, durationSeconds, distanceMeters]
+      properties:
+        type: { type: string, enum: [transit, walk] }
+        mode: { type: string, examples: [bus, walk] }
+        line:
+          $ref: "#/components/schemas/Line"
+          description: Present on transit legs only.
+        headsign: { type: string }
+        from: { $ref: "#/components/schemas/Place" }
+        to: { $ref: "#/components/schemas/Place" }
+        durationSeconds: { type: integer, minimum: 0 }
+        distanceMeters: { type: integer, minimum: 0 }
+    Itinerary:
+      type: object
+      required: [departure, arrival, timeQuality, durationSeconds, transfers, walkDistanceMeters, legs]
+      properties:
+        departure: { type: string, format: date-time, description: Expressed in WIB (UTC+07:00). }
+        arrival: { type: string, format: date-time, description: Expressed in WIB (UTC+07:00). }
+        timeQuality:
+          type: string
+          enum: [scheduled, frequency_estimate]
+          description: "`frequency_estimate` times come from headway-based service and must be shown as approximate."
+        durationSeconds: { type: integer, minimum: 0 }
+        transfers: { type: integer, minimum: 0 }
+        walkDistanceMeters: { type: integer, minimum: 0 }
+        legs:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Leg" }
+    Attribution:
+      type: object
+      required: [id, text]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        license: { type: string }
+        licenseUrl: { type: string, format: uri }
+        sourceUrl: { type: string, format: uri }
+    SourceVersion:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        sha256: { type: string }
+        lastModified: { type: string, format: date-time }
+        retrievedAt: { type: string, format: date-time }
+    DataVersion:
+      type: object
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/SourceVersion" }
+        graphBuiltAt: { type: string, format: date-time }
+    TripPlanResponse:
+      type: object
+      required: [origin, destination, requestedDepartAt, itineraries, attributions, dataVersion]
+      properties:
+        origin: { $ref: "#/components/schemas/Location" }
+        destination: { $ref: "#/components/schemas/Location" }
+        requestedDepartAt: { type: string, format: date-time }
+        itineraries:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { $ref: "#/components/schemas/Itinerary" }
+        attributions:
+          type: array
+          minItems: 1
+          description: Data-source credits required by the data licences. Always present on success.
+          items: { $ref: "#/components/schemas/Attribution" }
+        dataVersion:
+          description: Routing data version, or null when the routing engine does not report one.
+          oneOf:
+            - $ref: "#/components/schemas/DataVersion"
+            - type: "null"
+    ErrorDetail:
+      type: object
+      required: [field, reason]
+      properties:
+        field: { type: string, examples: [origin.lat, body] }
+        reason:
+          type: string
+          enum: [required, out_of_range, invalid_type, invalid_format, too_long, unknown_field, malformed_json, trailing_data, outside_service_area, not_routable]
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              enum: [INVALID_INPUT, UNSUPPORTED_MEDIA_TYPE, PAYLOAD_TOO_LARGE, NO_ROUTE, OUT_OF_COVERAGE, LOCATION_NOT_ROUTABLE, ROUTING_UNAVAILABLE, ROUTING_TIMEOUT, UPSTREAM_INVALID_RESPONSE, INTERNAL]
+            message: { type: string }
+            details:
+              type: array
+              items: { $ref: "#/components/schemas/ErrorDetail" }
+            requestId: { type: string }
