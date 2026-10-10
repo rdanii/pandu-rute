@@ -9,9 +9,14 @@
 .env.*
 !.env.example
 
-# Downloaded transit data (large, licence terms unverified — do not commit)
+# Downloaded transit data and built routing artifacts — never commit.
+# TransJakarta GTFS is CC BY 4.0 and OSM is ODbL, but feeds, extracts and graphs
+# are large, versioned outside git, and other operators' data is unlicensed.
 /data/
 *[gG][tT][fF][sS]*.zip
+*.pbf
+graph.obj
+*.jar
 
 # Editor / OS
 .DS_Store
